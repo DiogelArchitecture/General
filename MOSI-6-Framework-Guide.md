@@ -2,6 +2,20 @@
 
 Hormozi teaches that you should move down this list in order. If you have a problem at Step 1, solving Step 4 won't help you grow.
 
+## Quick Reference
+
+After confirming you can't just do **More** of what's already working, walk these constraints in order:
+
+1. **Metrics:** Do you actually have the data? (You can't fix what you don't measure).
+2. **Market:** Is there enough demand? Are you fishing in a pond with no fish?
+3. **Model:** Is the math of the business broken? (e.g., it costs $100 to get a customer who only pays you $80).
+4. **Money:** This refers to Cash Flow.
+   - **Leads ↑:** Increasing the volume of potential interest.
+   - **Sales ↑:** Improving the conversion of that interest.
+   - **LTGP ↓:** (Lower Left) Likely referring to Long Term Gross Profit or Lifetime Value constraints.
+   - **CF ↓:** Cash Flow issues (often caused by the "Success Gap" where you grow so fast you run out of cash).
+5. **Manpower:** Do you have the people to fulfill the work?
+
 ## Step 1: MORE? (Input Volume)
 
 Before changing anything, ask: "Can I just do more of what is already working?"

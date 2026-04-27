@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MOSI-6 Framework Walkthrough</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --panel-2: #1c232c;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --good: #3fb950;
+    --warn: #d29922;
+    --bad: #f85149;
+    --border: #30363d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px 64px;
+  }
+  main {
+    width: 100%;
+    max-width: 760px;
+  }
+  header.app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 16px;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  h1 {
+    font-size: 22px;
+    margin: 0;
+    letter-spacing: 0.2px;
+  }
+  .subtitle { color: var(--muted); font-size: 14px; }
+  .progress {
+    display: flex;
+    gap: 6px;
+    margin: 16px 0 24px;
+  }
+  .pip {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+  }
+  .pip.active { background: var(--accent); border-color: var(--accent); }
+  .pip.done { background: var(--good); border-color: var(--good); }
+  .pip.flagged { background: var(--bad); border-color: var(--bad); }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px;
+  }
+  .step-tag {
+    display: inline-block;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  h2 { font-size: 20px; margin: 0 0 8px; }
+  .logic { color: var(--muted); margin: 0 0 14px; font-size: 14px; }
+  .question { font-size: 16px; margin: 14px 0 12px; }
+  .options { display: flex; flex-direction: column; gap: 8px; }
+  button.option {
+    text-align: left;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  button.option:hover { border-color: var(--accent); }
+  button.option.selected { border-color: var(--accent); background: rgba(88,166,255,0.08); }
+  .nav {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+    gap: 8px;
+  }
+  button.nav-btn {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button.nav-btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0b0d11;
+    font-weight: 600;
+  }
+  button.nav-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .verdict {
+    border-left: 3px solid var(--accent);
+    background: rgba(88,166,255,0.06);
+    padding: 12px 14px;
+    margin-top: 16px;
+    border-radius: 0 8px 8px 0;
+    font-size: 14px;
+  }
+  .verdict.flag {
+    border-color: var(--bad);
+    background: rgba(248,81,73,0.06);
+  }
+  .verdict.pass {
+    border-color: var(--good);
+    background: rgba(63,185,80,0.06);
+  }
+  .verdict h3 { margin: 0 0 6px; font-size: 14px; }
+  .summary-list { margin: 12px 0 0; padding: 0; list-style: none; }
+  .summary-list li {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: var(--panel-2);
+    font-size: 14px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .badge {
+    font-size: 11px;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .badge.pass { color: var(--good); border-color: var(--good); }
+  .badge.flag { color: var(--bad); border-color: var(--bad); }
+  .meta { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .footer { margin-top: 20px; color: var(--muted); font-size: 12px; text-align: center; }
+  details.notes { margin-top: 14px; }
+  details.notes summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  details.notes textarea {
+    width: 100%;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    margin-top: 6px;
+    min-height: 64px;
+    resize: vertical;
+  }
+</style>
+</head>
+<body>
+<main>
+  <header class="app-header">
+    <div>
+      <h1>MOSI-6 Framework Walkthrough</h1>
+      <div class="subtitle">Diagnose your growth constraint, in order.</div>
+    </div>
+    <button id="restart" class="nav-btn">Restart</button>
+  </header>
+  <div class="progress" id="progress"></div>
+  <div id="view"></div>
+  <div class="footer">Hormozi's MOSI-6: walk the ladder — fix the first failing rung before climbing further.</div>
+</main>
+
+<script>
+  const STEPS = [
+    {
+      key: "more",
+      tag: "Step 1",
+      title: "MORE? (Input Volume)",
+      logic: "Before changing anything, ask: can I just do more of what is already working?",
+      question: "Are you already doing the maximum volume of the activities that are working?",
+      options: [
+        { label: "No — I could clearly do more (more calls, more posts, more outreach).", flag: true },
+        { label: "Yes — I'm at or near the ceiling of what input volume can produce.", flag: false }
+      ],
+      flagAdvice: "Stop here. Don't buy software, don't hire, don't pivot. Multiply the input volume of what's already working until it stops scaling. Most people leave 5–10x on the table at this step.",
+      passAdvice: "Volume is maxed — move on to Metrics."
+    },
+    {
+      key: "metrics",
+      tag: "Step 2",
+      title: "METRICS (The Dashboard)",
+      logic: "You cannot manage what you do not measure. Without numbers, you're guessing at the constraint.",
+      question: "Do you know your CAC, LTV, churn, and close rate — with current data?",
+      options: [
+        { label: "No — some or all of these numbers are missing or stale.", flag: true },
+        { label: "Yes — I can pull all four right now and trust them.", flag: false }
+      ],
+      flagAdvice: "Set up tracking before doing anything else. You probably think you have a marketing/lead problem when you actually have a sales/close-rate problem (or vice versa). Instrument first; diagnose second.",
+      passAdvice: "Metrics are in place — move on to Market."
+    },
+    {
+      key: "market",
+      tag: "Step 3",
+      title: "MARKET (The Audience)",
+      logic: "The best sales team can't sell VHS tapes in 2024. Pond size and demand cap your ceiling.",
+      question: "Is your market large enough and demand strong enough to support your growth target?",
+      options: [
+        { label: "No — the addressable audience is too small or the demand is fading.", flag: true },
+        { label: "Yes — there are plenty of qualified buyers I haven't reached yet.", flag: false }
+      ],
+      flagAdvice: "Expand the market: widen geography, broaden the avatar, move up-market or down-market, or pivot to an adjacent audience. No amount of effort beats running out of humans to sell to.",
+      passAdvice: "Market is large and willing — move on to Model."
+    },
+    {
+      key: "model",
+      tag: "Step 4",
+      title: "MODEL (The Math)",
+      logic: "If CAC > LTV, the more you grow the faster you go broke.",
+      question: "Does the unit economics work? (Roughly: LTV at least 3× CAC, with healthy gross margin.)",
+      options: [
+        { label: "No — CAC is too high vs LTV, or margins don't leave room to reinvest.", flag: true },
+        { label: "Yes — the math is healthy and scales profitably.", flag: false }
+      ],
+      flagAdvice: "Don't pour fuel on a broken engine. Fix the model: raise prices, change packaging, lengthen retention, cut fulfillment cost, or change who you sell to. Scaling a broken model accelerates the loss.",
+      passAdvice: "Model is sound — move on to Money."
+    },
+    {
+      key: "money",
+      tag: "Step 5",
+      title: "MONEY (Cash Flow & Economics)",
+      logic: "Profitable on paper ≠ solvent in practice. The Success Gap kills fast-growers.",
+      question: "Of these four, which is the binding constraint right now?",
+      options: [
+        { label: "Leads ↑ — not enough top-of-funnel volume.", flag: true, sub: "leads" },
+        { label: "Sales ↑ — leads exist but conversion is too low.", flag: true, sub: "sales" },
+        { label: "LTGP ↓ — long-term gross profit per customer is too thin to reinvest.", flag: true, sub: "ltgp" },
+        { label: "CF ↓ — paid after the work; running out of cash before collections clear.", flag: true, sub: "cf" },
+        { label: "None — capital efficiency is healthy across all four.", flag: false }
+      ],
+      subAdvice: {
+        leads: "Buy or earn more attention: add a channel, increase frequency, or improve hook quality before optimizing further down the funnel.",
+        sales: "Fix the conversion engine: better script, better offer, faster speed-to-lead, more reps on the phone, or tighter qualification.",
+        ltgp: "Increase price, increase retention, or cut variable cost. Without LTGP you can't outbid competitors for attention.",
+        cf: "Get paid sooner: deposits, prepay discounts, financing, factoring. Or slow growth to match collections."
+      },
+      flagAdvice: "(See sub-bullet above.) Solve the binding money constraint before adding people.",
+      passAdvice: "Money is healthy — move on to Manpower."
+    },
+    {
+      key: "manpower",
+      tag: "Step 6",
+      title: "MANPOWER (The Team)",
+      logic: "Hire only when your model is so successful you physically cannot handle the volume.",
+      question: "Is the bottleneck genuinely 'I have proven demand and a working model but can't fulfill it without more people'?",
+      options: [
+        { label: "No — I'm tempted to hire to fix something earlier in the ladder.", flag: true },
+        { label: "Yes — proven offer, proven funnel, proven economics, just need hands.", flag: false }
+      ],
+      flagAdvice: "Don't hire your way out of a Model or Money problem. A Sales Manager without a working script is overhead. Re-examine steps 1–5 and find the real constraint.",
+      passAdvice: "Manpower is the real constraint — hire against the proven system. Define the role, the scorecard, and the ramp before you post the job."
+    }
+  ];
+
+  const STORAGE_KEY = "mosi6.state.v1";
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return defaultState();
+      const s = JSON.parse(raw);
+      if (!s || !Array.isArray(s.answers)) return defaultState();
+      return s;
+    } catch { return defaultState(); }
+  }
+  function defaultState() {
+    return { idx: 0, answers: STEPS.map(() => null), notes: STEPS.map(() => ""), finished: false };
+  }
+  function saveState(s) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch {}
+  }
+
+  let state = loadState();
+
+  function render() {
+    renderProgress();
+    if (state.finished) renderSummary();
+    else renderStep();
+  }
+
+  function renderProgress() {
+    const wrap = document.getElementById("progress");
+    wrap.innerHTML = "";
+    STEPS.forEach((_, i) => {
+      const pip = document.createElement("div");
+      pip.className = "pip";
+      const ans = state.answers[i];
+      if (state.finished || i < state.idx) {
+        pip.classList.add(ans && ans.flag ? "flagged" : "done");
+      } else if (i === state.idx) {
+        pip.classList.add("active");
+      }
+      wrap.appendChild(pip);
+    });
+  }
+
+  function renderStep() {
+    const step = STEPS[state.idx];
+    const ans = state.answers[state.idx];
+    const view = document.getElementById("view");
+    view.innerHTML = `
+      <section class="card">
+        <div class="step-tag">${step.tag}</div>
+        <h2>${step.title}</h2>
+        <p class="logic">${step.logic}</p>
+        <div class="question">${step.question}</div>
+        <div class="options" id="options"></div>
+        <div id="verdict"></div>
+        <details class="notes"><summary>Notes for this step</summary>
+          <textarea id="notes" placeholder="What's true for you on this step? Numbers, blockers, next actions...">${escapeHtml(state.notes[state.idx] || "")}</textarea>
+        </details>
+        <div class="nav">
+          <button class="nav-btn" id="back" ${state.idx === 0 ? "disabled" : ""}>Back</button>
+          <button class="nav-btn primary" id="next" ${ans === null ? "disabled" : ""}>${state.idx === STEPS.length - 1 ? "Finish" : "Next"}</button>
+        </div>
+      </section>
+    `;
+
+    const optsWrap = document.getElementById("options");
+    step.options.forEach((opt, i) => {
+      const btn = document.createElement("button");
+      btn.className = "option" + (ans && ans.optionIndex === i ? " selected" : "");
+      btn.textContent = opt.label;
+      btn.addEventListener("click", () => {
+        state.answers[state.idx] = { optionIndex: i, flag: !!opt.flag, sub: opt.sub || null };
+        saveState(state);
+        render();
+      });
+      optsWrap.appendChild(btn);
+    });
+
+    if (ans) renderVerdict(step, ans);
+
+    document.getElementById("notes").addEventListener("input", e => {
+      state.notes[state.idx] = e.target.value;
+      saveState(state);
+    });
+    document.getElementById("back").addEventListener("click", () => {
+      if (state.idx > 0) { state.idx--; saveState(state); render(); }
+    });
+    document.getElementById("next").addEventListener("click", () => {
+      if (state.answers[state.idx] === null) return;
+      if (state.idx < STEPS.length - 1) state.idx++;
+      else state.finished = true;
+      saveState(state);
+      render();
+    });
+  }
+
+  function renderVerdict(step, ans) {
+    const v = document.getElementById("verdict");
+    if (ans.flag) {
+      const sub = ans.sub && step.subAdvice ? step.subAdvice[ans.sub] : null;
+      v.className = "verdict flag";
+      v.innerHTML = `<h3>Constraint flagged</h3>${sub ? `<div>${sub}</div>` : ""}<div class="meta">${step.flagAdvice}</div>`;
+    } else {
+      v.className = "verdict pass";
+      v.innerHTML = `<h3>Clear</h3><div>${step.passAdvice}</div>`;
+    }
+  }
+
+  function renderSummary() {
+    const view = document.getElementById("view");
+    const firstFlag = state.answers.findIndex(a => a && a.flag);
+    let headline;
+    if (firstFlag === -1) {
+      headline = `<div class="verdict pass"><h3>All six rungs clear</h3><div>No constraint flagged. Re-run periodically — the binding constraint shifts as you grow.</div></div>`;
+    } else {
+      const step = STEPS[firstFlag];
+      const ans = state.answers[firstFlag];
+      const sub = ans.sub && step.subAdvice ? step.subAdvice[ans.sub] : null;
+      headline = `<div class="verdict flag"><h3>Focus here: ${step.tag} — ${step.title}</h3>${sub ? `<div>${sub}</div>` : ""}<div class="meta">${step.flagAdvice}</div></div>`;
+    }
+
+    const items = STEPS.map((step, i) => {
+      const ans = state.answers[i];
+      const note = state.notes[i] && state.notes[i].trim();
+      const badge = !ans ? "" : (ans.flag
+        ? `<span class="badge flag">flagged</span>`
+        : `<span class="badge pass">clear</span>`);
+      const choice = ans ? escapeHtml(step.options[ans.optionIndex].label) : "<em>skipped</em>";
+      return `<li>${badge}<div><div><strong>${step.tag}: ${step.title}</strong></div><div class="meta">${choice}</div>${note ? `<div class="meta">Note: ${escapeHtml(note)}</div>` : ""}</div></li>`;
+    }).join("");
+
+    view.innerHTML = `
+      <section class="card">
+        <div class="step-tag">Diagnosis</div>
+        <h2>Your binding constraint</h2>
+        ${headline}
+        <ul class="summary-list">${items}</ul>
+        <div class="nav">
+          <button class="nav-btn" id="back-to-edit">Review answers</button>
+          <button class="nav-btn primary" id="restart-2">Run again</button>
+        </div>
+      </section>
+    `;
+    document.getElementById("back-to-edit").addEventListener("click", () => {
+      state.finished = false;
+      state.idx = Math.max(0, state.answers.findIndex(a => a === null));
+      if (state.answers.every(a => a !== null)) state.idx = STEPS.length - 1;
+      saveState(state);
+      render();
+    });
+    document.getElementById("restart-2").addEventListener("click", restart);
+  }
+
+  function restart() {
+    state = defaultState();
+    saveState(state);
+    render();
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  document.getElementById("restart").addEventListener("click", restart);
+  render();
+</script>
+</body>
+</html>

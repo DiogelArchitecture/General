@@ -22,7 +22,10 @@ export default async function TodayPage() {
           </button>
         </form>
       </div>
-      <TodayHub partnerName={ctx.partner.display_name || "your partner"} />
+      <TodayHub
+        partnerName={ctx.partner.display_name || "your partner"}
+        userId={ctx.userId}
+      />
     </main>
   );
 }

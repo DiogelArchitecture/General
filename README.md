@@ -22,7 +22,7 @@ irritation you log only nudges *which area* a mission lands in — never its wor
 
 ### 1. Supabase
 1. Create a project at [supabase.com](https://supabase.com).
-2. In **SQL Editor**, paste and run [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql). This creates the tables, the `create_couple` / `join_couple` functions, and all RLS policies.
+2. In **SQL Editor**, paste and run [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql), then [`supabase/migrations/0002_features.sql`](supabase/migrations/0002_features.sql). The first creates the tables, the `create_couple` / `join_couple` functions, and all RLS policies; the second adds mission-swap, stats, and reminder columns.
 3. In **Authentication → URL Configuration**, add your site URL and the redirect URL `http://localhost:3000/auth/callback` (and your production `https://<domain>/auth/callback`).
 4. From **Project Settings → API**, copy the Project URL, the `anon` public key, and the `service_role` key.
 
@@ -39,6 +39,12 @@ ANTHROPIC_API_KEY=sk-ant-...       # server-only
 The app works without `ANTHROPIC_API_KEY` — it falls back to a hand-written task
 library and a keyword classifier, so you can try the full loop immediately and
 switch AI on later.
+
+Optional — the evening reminder email needs `BREVO_API_KEY`, `BREVO_SENDER`
+(e.g. `Hidden Agenda <hello@yourdomain.com>`), and `CRON_SECRET`. Without them
+the reminder cron is a harmless no-op. `vercel.json` schedules a single daily
+send at **18:30 UTC** (≈ 7:30pm UK; note it drifts an hour across BST/GMT and
+assumes both partners are in the UK — per-user timezones are a later step).
 
 ### 3. Run
 
@@ -78,10 +84,23 @@ variables in the Vercel project settings. Add your production
 - The guesser can't see the partner's mission until they submit a guess; the
   reveal is served by `/api/guess` after recording the guess.
 
+## Extras
+
+- **Memory Lane** (`/memory`) — a gentle look back: the good things you've
+  logged, gestures of yours your partner noticed, and ones you caught. Built
+  only from already-revealed data; raw notes are never resurfaced.
+- **Gentle streak** — a soft "evenings in a row" and "gestures noticed" count
+  on the hub. Never punitive, and hidden until there's something warm to show.
+- **Mission swap** — once a day, before your partner guesses, you can swap the
+  wording of your mission for a fresh one. The theme stays fixed, so the guess
+  stays fair.
+- **Evening reminder** — an optional daily email nudge (see env vars above).
+
 ## Not in this version (planned next)
 
-Gamification (points/streaks/levels), a DISC-style onboarding quiz that tailors
-mission tone, an insights/trends dashboard, and scheduled push/email nudges.
+Gamification (points/levels), a DISC-style onboarding quiz that tailors mission
+tone, an insights/trends dashboard, per-user reminder timezones, and web-push
+nudges.
 
 ---
 

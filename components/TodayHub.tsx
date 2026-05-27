@@ -8,8 +8,13 @@ interface Mission {
   title: string;
   instruction: string;
   status: "assigned" | "completed";
+  swap_count?: number;
   guessed?: boolean;
   noticed?: boolean;
+}
+interface Stats {
+  reflectionStreak: number;
+  noticedCount: number;
 }
 interface Reveal {
   title: string;
@@ -25,6 +30,8 @@ interface State {
   loggedToday?: boolean;
   mission?: Mission | null;
   guess?: { guessable: boolean; reveal: Reveal | null };
+  stats?: Stats;
+  notifyOptIn?: boolean;
 }
 
 // The evening reflection unlocks at 19:30 local time.
@@ -144,12 +151,76 @@ export default function TodayHub({
   if (loading) return <div className="muted">Loading…</div>;
   if (!state) return <div className="error">Couldn&apos;t load. Try refreshing.</div>;
 
-  if (!isUnlocked(now)) {
-    return (
-      <Anticipation state={state} partnerName={partnerName} userId={userId} now={now} onDone={refresh} />
-    );
+  const screen = !isUnlocked(now) ? (
+    <Anticipation state={state} partnerName={partnerName} userId={userId} now={now} onDone={refresh} />
+  ) : (
+    <Evening state={state} partnerName={partnerName} userId={userId} onDone={refresh} />
+  );
+
+  return (
+    <>
+      <StatsBar stats={state.stats} />
+      {screen}
+      <ReminderToggle initial={state.notifyOptIn ?? true} />
+    </>
+  );
+}
+
+// A pair of soft, never-punitive numbers. Hidden until there's something warm
+// to show (no "0 day streak").
+function StatsBar({ stats }: { stats?: Stats }) {
+  if (!stats) return null;
+  const { reflectionStreak, noticedCount } = stats;
+  if (reflectionStreak <= 0 && noticedCount <= 0) return null;
+
+  return (
+    <div className="chips" style={{ marginBottom: 16 }}>
+      {reflectionStreak > 0 && (
+        <span className="pill good">
+          {reflectionStreak} {reflectionStreak === 1 ? "evening" : "evenings"} in a row
+        </span>
+      )}
+      {noticedCount > 0 && (
+        <span className="pill">
+          {noticedCount} {noticedCount === 1 ? "gesture" : "gestures"} noticed
+        </span>
+      )}
+    </div>
+  );
+}
+
+// Opt in/out of the evening email nudge.
+function ReminderToggle({ initial }: { initial: boolean }) {
+  const [on, setOn] = useState(initial);
+  const [busy, setBusy] = useState(false);
+
+  async function toggle() {
+    const next = !on;
+    setOn(next);
+    setBusy(true);
+    const res = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notify_opt_in: next }),
+    });
+    setBusy(false);
+    if (!res.ok) setOn(!next); // revert on failure
   }
-  return <Evening state={state} partnerName={partnerName} userId={userId} onDone={refresh} />;
+
+  return (
+    <div className="row" style={{ marginTop: 4, padding: "0 4px" }}>
+      <span className="muted">Email me an evening reminder at 7:30</span>
+      <button
+        className={`pill${on ? " good" : ""}`}
+        onClick={toggle}
+        disabled={busy}
+        type="button"
+        style={{ cursor: "pointer", background: "transparent" }}
+      >
+        {on ? "On" : "Off"}
+      </button>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -631,6 +702,8 @@ function EveningSummary({ state, partnerName }: { state: State; partnerName: str
 
 function MissionCard({ mission, partnerName }: { mission: Mission | null; partnerName: string }) {
   const [busy, setBusy] = useState(false);
+  const [swapping, setSwapping] = useState(false);
+  const [swapError, setSwapError] = useState("");
 
   async function complete() {
     setBusy(true);
@@ -642,6 +715,25 @@ function MissionCard({ mission, partnerName }: { mission: Mission | null; partne
     setBusy(false);
     window.location.reload();
   }
+
+  async function swap() {
+    setSwapping(true);
+    setSwapError("");
+    const res = await fetch("/api/mission/swap", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(withDev()),
+    });
+    const data = await res.json().catch(() => ({}));
+    setSwapping(false);
+    if (!res.ok) {
+      setSwapError(data.error ?? "Couldn't swap right now");
+      return;
+    }
+    window.location.reload();
+  }
+
+  const canSwap = !!mission && mission.status === "assigned" && (mission.swap_count ?? 0) < 1;
 
   if (!mission) {
     return (
@@ -686,6 +778,18 @@ function MissionCard({ mission, partnerName }: { mission: Mission | null; partne
           {busy ? "Saving…" : "I did it"}
         </button>
       )}
+      {canSwap && (
+        <button
+          className="btn btn-ghost btn-block"
+          style={{ marginTop: 8 }}
+          onClick={swap}
+          disabled={swapping}
+          type="button"
+        >
+          {swapping ? "Finding another…" : "Not feeling this one? Swap it"}
+        </button>
+      )}
+      {swapError && <div className="error">{swapError}</div>}
     </div>
   );
 }

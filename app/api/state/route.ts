@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getUserContext } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
 import { ensureTasksForToday } from "@/lib/generation";
+import { getStats } from "@/lib/stats";
 import { todayKey } from "@/lib/dates";
 import { themeLabel } from "@/lib/themes";
 
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
   const db = createServiceClient();
   const me = ctx.userId;
 
-  const [loggedRes, missionRes, partnerTaskRes] = await Promise.all([
+  const [loggedRes, missionRes, partnerTaskRes, profileRes, stats] = await Promise.all([
     db
       .from("entries")
       .select("id")
@@ -39,7 +40,7 @@ export async function GET(request: Request) {
       .maybeSingle(),
     db
       .from("tasks")
-      .select("id, title, instruction, status")
+      .select("id, title, instruction, status, swap_count")
       .eq("couple_id", ctx.coupleId)
       .eq("doer_id", me)
       .eq("task_date", today)
@@ -51,6 +52,8 @@ export async function GET(request: Request) {
       .eq("guesser_id", me)
       .eq("task_date", today)
       .maybeSingle(),
+    db.from("profiles").select("notify_opt_in").eq("id", me).maybeSingle(),
+    getStats(ctx.coupleId, me, today),
   ]);
 
   // Recognise the good thing: if my partner already guessed MY mission
@@ -116,5 +119,7 @@ export async function GET(request: Request) {
     loggedToday: !!loggedRes.data,
     mission,
     guess: { guessable, reveal },
+    stats,
+    notifyOptIn: profileRes.data?.notify_opt_in ?? true,
   });
 }

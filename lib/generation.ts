@@ -44,6 +44,31 @@ function pickTheme(entries: EntryRow[], today: string): ThemeId | null {
   return best;
 }
 
+// The positive memories the guesser logged about the doer within a theme,
+// newest first. Shared by daily generation and the mission-swap route so both
+// draw on the same inspiration.
+export async function gatherMemories(
+  db: ReturnType<typeof createServiceClient>,
+  coupleId: string,
+  guesserId: string,
+  doerId: string,
+  theme: ThemeId,
+  today: string,
+): Promise<string[]> {
+  const { data: entries } = await db
+    .from("entries")
+    .select("log_date, happy_text, happy_theme")
+    .eq("couple_id", coupleId)
+    .eq("author_id", guesserId)
+    .eq("subject_id", doerId)
+    .lt("log_date", today);
+
+  return (entries ?? [])
+    .filter((e: { happy_theme: string | null; happy_text: string }) => e.happy_theme === theme && e.happy_text.trim())
+    .sort((a: { log_date: string }, b: { log_date: string }) => (a.log_date < b.log_date ? 1 : -1))
+    .map((e: { happy_text: string }) => e.happy_text.trim());
+}
+
 async function generateForDoer(
   db: ReturnType<typeof createServiceClient>,
   coupleId: string,
@@ -74,10 +99,7 @@ async function generateForDoer(
   const theme = pickTheme(rows, today);
   if (!theme) return; // cold start — nothing logged yet
 
-  const memories = rows
-    .filter((e) => e.happy_theme === theme && e.happy_text.trim())
-    .sort((a, b) => (a.log_date < b.log_date ? 1 : -1))
-    .map((e) => e.happy_text.trim());
+  const memories = await gatherMemories(db, coupleId, guesserId, doerId, theme, today);
 
   const { title, instruction } = await generateTask(theme, memories);
 

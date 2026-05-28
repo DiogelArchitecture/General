@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   const db = createServiceClient();
   const { error } = await db
     .from("tasks")
-    .update({ status: "completed" })
+    .update({ status: "completed", completed_at: new Date().toISOString() })
     .eq("couple_id", ctx.coupleId)
     .eq("doer_id", ctx.userId)
     .eq("task_date", today);

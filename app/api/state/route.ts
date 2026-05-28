@@ -93,7 +93,7 @@ export async function GET(request: Request) {
         .maybeSingle();
       const full = await db
         .from("tasks")
-        .select("title, instruction")
+        .select("title, instruction, completed_at")
         .eq("id", taskId)
         .maybeSingle();
       reveal = {
@@ -105,6 +105,7 @@ export async function GET(request: Request) {
         guessed_label: themeLabel(guessRes.data.guessed_theme),
         guess_text: guessRes.data.guess_text,
         is_correct: guessRes.data.is_correct,
+        completed_at: full.data?.completed_at ?? null,
       };
     } else {
       guessable = true;

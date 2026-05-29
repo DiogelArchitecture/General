@@ -443,16 +443,13 @@ function QuickCapture({ userId, date }: { userId: string; date: string }) {
         Catch them as they happen — tonight you can turn these into your reflection.
       </p>
 
-      <label className="label" style={{ marginTop: 14 }}>
-        A good thing
-      </label>
-      <div className="capture-row">
+      <div className="capture-row" style={{ marginTop: 14 }}>
         <input
           className="input"
           style={{ marginTop: 0 }}
           value={good}
           onChange={(e) => setGood(e.target.value)}
-          placeholder="Something they did you loved"
+          placeholder="Something that brought joy…"
           maxLength={200}
           onKeyDown={(e) => e.key === "Enter" && add("good")}
         />
@@ -470,16 +467,13 @@ function QuickCapture({ userId, date }: { userId: string; date: string }) {
         </div>
       )}
 
-      <label className="label" style={{ marginTop: 16 }}>
-        A bad thing
-      </label>
-      <div className="capture-row">
+      <div className="capture-row" style={{ marginTop: 12 }}>
         <input
           className="input"
           style={{ marginTop: 0 }}
           value={bad}
           onChange={(e) => setBad(e.target.value)}
-          placeholder="Something that grated a little"
+          placeholder="Something that grated…"
           maxLength={200}
           onKeyDown={(e) => e.key === "Enter" && add("bad")}
         />

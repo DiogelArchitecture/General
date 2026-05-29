@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { THEMES } from "@/lib/themes";
 
 interface Mission {
@@ -234,6 +234,77 @@ function ReminderToggle({ initial }: { initial: boolean }) {
   );
 }
 
+// Native scroll-snap carousel — each child becomes a swipeable card. Tracks
+// the active slide via a scroll listener and renders click-to-jump dots.
+function Carousel({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const slides = (Array.isArray(children) ? children : [children]).filter(
+    (c): c is ReactNode => c !== null && c !== false && c !== undefined,
+  );
+  const [active, setActive] = useState(0);
+
+  function go(i: number) {
+    const el = ref.current;
+    const slide = el?.children[i] as HTMLElement | undefined;
+    if (!el || !slide) return;
+    el.scrollTo({ left: slide.offsetLeft, behavior: "smooth" });
+  }
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let frame = 0;
+    const onScroll = () => {
+      if (frame) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const center = el.scrollLeft + el.clientWidth / 2;
+        let best = 0;
+        let bestD = Infinity;
+        for (let i = 0; i < el.children.length; i++) {
+          const s = el.children[i] as HTMLElement;
+          const sc = s.offsetLeft + s.clientWidth / 2;
+          const d = Math.abs(sc - center);
+          if (d < bestD) {
+            bestD = d;
+            best = i;
+          }
+        }
+        setActive(best);
+      });
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      el.removeEventListener("scroll", onScroll);
+    };
+  }, []);
+
+  return (
+    <>
+      <div className="carousel" ref={ref}>
+        {slides.map((c, i) => (
+          <div key={i} className="carousel-slide">
+            {c}
+          </div>
+        ))}
+      </div>
+      {slides.length > 1 && (
+        <div className="dots" role="tablist">
+          {slides.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              className={`dot${active === i ? " active" : ""}`}
+              aria-label={`Go to card ${i + 1}`}
+              onClick={() => go(i)}
+            />
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Before 19:30 — anticipation: countdown, how-it-works, mission, guess, jotting.
 // ---------------------------------------------------------------------------
@@ -252,9 +323,8 @@ function Anticipation({
   onDone: () => void;
 }) {
   return (
-    <>
+    <Carousel>
       <CountdownCard now={now} />
-      <HowItWorks />
       <MissionCard mission={state.mission ?? null} partnerName={partnerName} />
       <GuessCard
         guessable={state.guess?.guessable ?? false}
@@ -263,7 +333,7 @@ function Anticipation({
         onDone={onDone}
       />
       <QuickCapture userId={userId} date={state.date} />
-    </>
+    </Carousel>
   );
 }
 
@@ -292,6 +362,9 @@ function CountdownCard({ now }: { now: number }) {
         {pad(s)}
       </div>
       <p className="muted">until tonight&apos;s unlock</p>
+      <div style={{ marginTop: 14 }}>
+        <HowItWorks />
+      </div>
     </div>
   );
 }
@@ -301,8 +374,7 @@ function HowItWorks() {
   return (
     <>
       <button
-        className="btn btn-ghost btn-block"
-        style={{ marginBottom: 16 }}
+        className="link-muted"
         onClick={() => setOpen(true)}
         type="button"
       >
@@ -340,6 +412,13 @@ function QuickCapture({ userId, date }: { userId: string; date: string }) {
   const [jot, setJot] = useState<Jot>(() => loadJot(userId, date));
   const [good, setGood] = useState("");
   const [bad, setBad] = useState("");
+
+  // The jot is keyed per-day in localStorage; if the day rolls over while the
+  // tab is open (or a stale state.date refreshes to today), reload so we don't
+  // keep showing yesterday's jottings.
+  useEffect(() => {
+    setJot(loadJot(userId, date));
+  }, [userId, date]);
 
   function add(kind: "good" | "bad") {
     const val = (kind === "good" ? good : bad).trim();
@@ -685,7 +764,7 @@ function ReflectStep({
 
 function EveningSummary({ state, partnerName }: { state: State; partnerName: string }) {
   return (
-    <>
+    <Carousel>
       <div className="card anticipation">
         <div className="card-tag">Tonight</div>
         <h2>All done for tonight 💛</h2>
@@ -703,7 +782,7 @@ function EveningSummary({ state, partnerName }: { state: State; partnerName: str
           onDone={() => {}}
         />
       )}
-    </>
+    </Carousel>
   );
 }
 

@@ -287,3 +287,65 @@ button {
 .modal p {
   font-size: 15px;
 }
+
+/* Swipeable card carousel — replaces vertical scrolling on the day-time hub
+   and the evening summary. Native scroll-snap, no JS library. */
+.carousel {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-bottom: 4px;
+}
+.carousel::-webkit-scrollbar {
+  display: none;
+}
+.carousel-slide {
+  flex: 0 0 100%;
+  min-width: 0;
+  scroll-snap-align: start;
+}
+.carousel-slide > .card {
+  margin-bottom: 0;
+}
+
+.dots {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: 14px 0 0;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.dot.active {
+  background: var(--accent);
+  transform: scale(1.25);
+}
+
+/* Small muted text-link, for the unobtrusive "How does this work?" affordance. */
+.link-muted {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration: underline;
+  font-family: inherit;
+}
+.link-muted:hover {
+  color: var(--text);
+}

@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   // The partner's mission for today (the one this user is meant to notice).
   const { data: task } = await db
     .from("tasks")
-    .select("id, title, instruction")
+    .select("id, title, instruction, completed_at")
     .eq("couple_id", ctx.coupleId)
     .eq("guesser_id", ctx.userId)
     .eq("task_date", today)
@@ -73,6 +73,7 @@ export async function POST(request: Request) {
       guessed_label: themeLabel(saved?.guessed_theme ?? guessedTheme),
       guess_text: saved?.guess_text ?? guessText,
       is_correct: saved?.is_correct ?? isCorrect,
+      completed_at: task.completed_at ?? null,
     },
   });
 }

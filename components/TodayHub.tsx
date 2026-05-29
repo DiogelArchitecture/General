@@ -23,6 +23,7 @@ interface Reveal {
   guessed_label: string;
   guess_text: string;
   is_correct: boolean;
+  completed_at?: string | null;
 }
 interface State {
   paired: boolean;
@@ -54,6 +55,16 @@ function withDev(body: Record<string, unknown> = {}) {
 function lockOverride(): string | null {
   if (typeof window === "undefined") return null;
   return new URLSearchParams(window.location.search).get("lock");
+}
+
+// "15:42" UTC ISO → "3:42pm" in the viewer's local time. Lowercase am/pm
+// reads softer than the screaming "PM" the default formatter emits.
+function formatClockTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d
+    .toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: true })
+    .replace(/\s?(AM|PM)$/i, (m) => m.trim().toLowerCase());
 }
 
 function msUntilUnlock(now: number): number {
@@ -814,6 +825,7 @@ function GuessCard({
   const shown = reveal ?? localReveal;
 
   if (shown) {
+    const doneAt = shown.completed_at ? formatClockTime(shown.completed_at) : null;
     return (
       <div className="card">
         <div className="card-tag">The reveal</div>
@@ -821,6 +833,11 @@ function GuessCard({
         <p style={{ fontSize: 16 }}>
           <strong>{shown.title}</strong> — {shown.instruction}
         </p>
+        {doneAt && (
+          <p className="muted" style={{ marginTop: 6 }}>
+            {partnerName} did it around {doneAt}.
+          </p>
+        )}
         <div className="row" style={{ marginTop: 12 }}>
           <span className="muted">You guessed: {shown.guessed_label}</span>
           {shown.is_correct ? (

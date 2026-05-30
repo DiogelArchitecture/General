@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserContext } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
-import { gatherMemories } from "@/lib/generation";
+import { gatherMemories, gatherRecentGestures } from "@/lib/generation";
 import { generateTask } from "@/lib/claude";
 import { todayKey } from "@/lib/dates";
 import { isThemeId } from "@/lib/themes";
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
   const { data: task } = await db
     .from("tasks")
-    .select("id, status, swap_count")
+    .select("id, status, swap_count, title, instruction")
     .eq("couple_id", ctx.coupleId)
     .eq("doer_id", ctx.userId)
     .eq("task_date", today)
@@ -64,8 +64,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Can't swap this mission" }, { status: 400 });
   }
 
-  const memories = await gatherMemories(db, ctx.coupleId, ctx.partner.id, ctx.userId, theme, today);
-  const { title, instruction } = await generateTask(theme, memories);
+  const [memories, recentGestures] = await Promise.all([
+    gatherMemories(db, ctx.coupleId, ctx.partner.id, ctx.userId, theme, today),
+    gatherRecentGestures(db, ctx.coupleId, ctx.userId, today),
+  ]);
+  // Include the gesture being swapped out, so the regenerated one is forced to
+  // differ from it as well as from the past week.
+  const avoid = [
+    { title: task.title, instruction: task.instruction },
+    ...recentGestures,
+  ];
+  const { title, instruction } = await generateTask(theme, memories, avoid);
 
   const { error } = await db
     .from("tasks")

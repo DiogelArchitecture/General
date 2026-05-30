@@ -18,6 +18,11 @@ interface EntryRow {
 // Recency-weighted: a theme seen today counts ~2x one seen a week ago. Both the
 // irritation theme and the happy theme vote on which area matters — only the
 // *area* is borrowed from irritations, never their wording.
+//
+// We then SAMPLE from the top 3 weighted themes proportional to their weight,
+// rather than always picking the single strongest. The dominant theme still
+// wins most of the time, but #2 and #3 get a real shot — so a couple's logs
+// settling into one or two themes don't lock the missions into a rut.
 function pickTheme(entries: EntryRow[], today: string): ThemeId | null {
   const weights = new Map<ThemeId, number>();
   let any = false;
@@ -32,16 +37,41 @@ function pickTheme(entries: EntryRow[], today: string): ThemeId | null {
     }
   }
   if (!any) return null;
-  let best: ThemeId = THEME_IDS[0];
-  let bestW = -1;
-  for (const id of THEME_IDS) {
-    const w = weights.get(id) ?? 0;
-    if (w > bestW) {
-      bestW = w;
-      best = id;
-    }
+
+  const ranked = [...weights.entries()]
+    .filter(([, w]) => w > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+  if (ranked.length === 0) return THEME_IDS[0];
+
+  const total = ranked.reduce((s, [, w]) => s + w, 0);
+  let r = Math.random() * total;
+  for (const [theme, w] of ranked) {
+    r -= w;
+    if (r <= 0) return theme;
   }
-  return best;
+  return ranked[0][0];
+}
+
+// The last few gestures this doer has already received, newest first — passed
+// to the LLM as a "do not repeat" list to break out of repetitive phrasings
+// when the theme keeps coming up. Used by daily generation and by mission swap.
+export async function gatherRecentGestures(
+  db: ReturnType<typeof createServiceClient>,
+  coupleId: string,
+  doerId: string,
+  today: string,
+  limit = 7,
+): Promise<{ title: string; instruction: string }[]> {
+  const { data } = await db
+    .from("tasks")
+    .select("title, instruction")
+    .eq("couple_id", coupleId)
+    .eq("doer_id", doerId)
+    .lt("task_date", today)
+    .order("task_date", { ascending: false })
+    .limit(limit);
+  return (data ?? []) as { title: string; instruction: string }[];
 }
 
 // The positive memories the guesser logged about the doer within a theme,
@@ -99,9 +129,12 @@ async function generateForDoer(
   const theme = pickTheme(rows, today);
   if (!theme) return; // cold start — nothing logged yet
 
-  const memories = await gatherMemories(db, coupleId, guesserId, doerId, theme, today);
+  const [memories, recentGestures] = await Promise.all([
+    gatherMemories(db, coupleId, guesserId, doerId, theme, today),
+    gatherRecentGestures(db, coupleId, doerId, today),
+  ]);
 
-  const { title, instruction } = await generateTask(theme, memories);
+  const { title, instruction } = await generateTask(theme, memories, recentGestures);
 
   const inserted = await db
     .from("tasks")

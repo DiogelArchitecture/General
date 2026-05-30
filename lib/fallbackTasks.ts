@@ -45,7 +45,16 @@ const FALLBACK: Record<ThemeId, { title: string; instruction: string }[]> = {
   ],
 };
 
-export function fallbackTask(theme: ThemeId, seed: number) {
+export function fallbackTask(
+  theme: ThemeId,
+  seed: number,
+  avoid: { title: string }[] = [],
+) {
   const options = FALLBACK[theme];
+  if (avoid.length > 0) {
+    const avoidTitles = new Set(avoid.map((a) => a.title));
+    const fresh = options.filter((o) => !avoidTitles.has(o.title));
+    if (fresh.length > 0) return fresh[seed % fresh.length];
+  }
   return options[seed % options.length];
 }

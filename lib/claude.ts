@@ -116,21 +116,31 @@ const GEN_SYSTEM =
   "2. Keep it subtle and doable in a normal day — something the other person might happily NOTICE, not a grand romantic spectacle.\n" +
   "3. Be specific and warm, not generic. Draw inspiration from the positive memories provided.\n" +
   "4. Never mention the theme name, this app, points, or that it is a task/assignment.\n" +
-  "5. Output ONLY JSON: {\"title\":\"<3-5 word name>\",\"instruction\":\"<one warm sentence telling them what to do today>\"}";
+  "5. Output ONLY JSON: {\"title\":\"<3-5 word name>\",\"instruction\":\"<one warm sentence telling them what to do today>\"}\n" +
+  "6. If the user lists \"Recent gestures already given\", the new gesture MUST differ meaningfully from every one of them — different action, different framing, different title. Do not rephrase.";
 
 export async function generateTask(
   theme: ThemeId,
   positiveMemories: string[],
+  avoidGestures: { title: string; instruction: string }[] = [],
 ): Promise<{ title: string; instruction: string; usedFallback: boolean }> {
   const c = client();
   if (!c) {
-    return { ...fallbackTask(theme, Date.now()), usedFallback: true };
+    return { ...fallbackTask(theme, Date.now(), avoidGestures), usedFallback: true };
   }
 
   const memo =
     positiveMemories.length > 0
       ? positiveMemories.slice(0, 4).map((m) => `- ${m}`).join("\n")
       : "(no specific memories yet — keep it simple and warm)";
+
+  const avoidBlock =
+    avoidGestures.length > 0
+      ? `Recent gestures already given (do NOT repeat or rephrase any of these):\n${avoidGestures
+          .slice(0, 7)
+          .map((g) => `- "${g.title}" — ${g.instruction}`)
+          .join("\n")}\n\n`
+      : "";
 
   try {
     const res = await c.messages.create({
@@ -144,6 +154,7 @@ export async function generateTask(
           content:
             `Focus area: ${themeLabel(theme)}.\n` +
             `Positive things the partner has appreciated before (inspiration, paraphrase — do not copy):\n${memo}\n\n` +
+            avoidBlock +
             `Write today's mission.`,
         },
       ],
@@ -157,5 +168,5 @@ export async function generateTask(
     // fall through to fallback
   }
 
-  return { ...fallbackTask(theme, Date.now()), usedFallback: true };
+  return { ...fallbackTask(theme, Date.now(), avoidGestures), usedFallback: true };
 }

@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   // The partner's mission for today (the one this user is meant to notice).
   const { data: task } = await db
     .from("tasks")
-    .select("id, title, instruction, completed_at")
+    .select("id, title, instruction, completed_at, status")
     .eq("couple_id", ctx.coupleId)
     .eq("guesser_id", ctx.userId)
     .eq("task_date", today)
@@ -33,6 +33,14 @@ export async function POST(request: Request) {
 
   if (!task) {
     return NextResponse.json({ error: "Nothing to guess yet today" }, { status: 400 });
+  }
+
+  // Nothing to have noticed yet — wait until they mark it done.
+  if (task.status !== "completed") {
+    return NextResponse.json(
+      { error: "Wait until they've marked their mission done before guessing." },
+      { status: 400 },
+    );
   }
 
   const { data: internal } = await db

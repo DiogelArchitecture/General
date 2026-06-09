@@ -30,7 +30,7 @@ interface State {
   date: string;
   loggedToday?: boolean;
   mission?: Mission | null;
-  guess?: { guessable: boolean; reveal: Reveal | null };
+  guess?: { guessable: boolean; waitingOnPartner?: boolean; reveal: Reveal | null };
   stats?: Stats;
   notifyOptIn?: boolean;
 }
@@ -328,6 +328,7 @@ function Anticipation({
       <MissionCard mission={state.mission ?? null} partnerName={partnerName} />
       <GuessCard
         guessable={state.guess?.guessable ?? false}
+        waitingOnPartner={state.guess?.waitingOnPartner ?? false}
         reveal={state.guess?.reveal ?? null}
         partnerName={partnerName}
         onDone={onDone}
@@ -568,6 +569,7 @@ function ReflectionWizard({
 }) {
   const jot = useMemo(() => loadJot(userId, state.date), [userId, state.date]);
   const guessable = state.guess?.guessable ?? false;
+  const waitingOnPartner = state.guess?.waitingOnPartner ?? false;
   const reveal = state.guess?.reveal ?? null;
 
   // Step list is fixed at mount so it doesn't shift as state refreshes mid-flow.
@@ -659,7 +661,26 @@ function ReflectionWizard({
     <>
       <div className="step-label">{`Step ${n} of ${n} · the guess`}</div>
       {guessable ? (
-        <GuessCard guessable reveal={reveal} partnerName={partnerName} onDone={onDone} />
+        <GuessCard
+          guessable
+          waitingOnPartner={false}
+          reveal={reveal}
+          partnerName={partnerName}
+          onDone={onDone}
+        />
+      ) : waitingOnPartner ? (
+        <div className="card">
+          <div className="card-tag">The guess</div>
+          <h2>Nothing to notice just yet</h2>
+          <p className="muted">
+            {partnerName} hasn&apos;t marked their mission done today, so there&apos;s
+            nothing to guess. You can come back to this once they have, or leave
+            it for tomorrow.
+          </p>
+          <button className="btn btn-block" style={{ marginTop: 14 }} onClick={onDone} type="button">
+            Finish for tonight
+          </button>
+        </div>
       ) : (
         <div className="card">
           <div className="card-tag">The guess</div>
@@ -771,6 +792,7 @@ function EveningSummary({ state, partnerName }: { state: State; partnerName: str
       {state.guess?.reveal && (
         <GuessCard
           guessable={false}
+          waitingOnPartner={false}
           reveal={state.guess.reveal}
           partnerName={partnerName}
           onDone={() => {}}
@@ -880,11 +902,13 @@ function MissionCard({ mission, partnerName }: { mission: Mission | null; partne
 
 function GuessCard({
   guessable,
+  waitingOnPartner,
   reveal,
   partnerName,
   onDone,
 }: {
   guessable: boolean;
+  waitingOnPartner: boolean;
   reveal: Reveal | null;
   partnerName: string;
   onDone: () => void;
@@ -930,6 +954,18 @@ function GuessCard({
   }
 
   if (!guessable) {
+    if (waitingOnPartner) {
+      return (
+        <div className="card">
+          <div className="card-tag">Did you notice?</div>
+          <h2>Nothing to notice just yet</h2>
+          <p className="muted">
+            {partnerName} hasn&apos;t marked their mission done today. When they do,
+            you&apos;ll be able to guess it here.
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="card">
         <div className="card-tag">Did you notice?</div>

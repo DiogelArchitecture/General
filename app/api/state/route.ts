@@ -47,7 +47,7 @@ export async function GET(request: Request) {
       .maybeSingle(),
     db
       .from("tasks")
-      .select("id")
+      .select("id, status")
       .eq("couple_id", ctx.coupleId)
       .eq("guesser_id", me)
       .eq("task_date", today)
@@ -75,9 +75,12 @@ export async function GET(request: Request) {
 
   let reveal: unknown = null;
   let guessable = false;
+  let waitingOnPartner = false;
 
   if (partnerTaskRes.data) {
     const taskId = partnerTaskRes.data.id;
+    const partnerCompleted = partnerTaskRes.data.status === "completed";
+
     const guessRes = await db
       .from("guesses")
       .select("guessed_theme, guess_text, is_correct")
@@ -107,8 +110,12 @@ export async function GET(request: Request) {
         is_correct: guessRes.data.is_correct,
         completed_at: full.data?.completed_at ?? null,
       };
-    } else {
+    } else if (partnerCompleted) {
+      // Only open the guess once the partner has actually marked their gesture
+      // done — otherwise there's nothing real to have noticed yet.
       guessable = true;
+    } else {
+      waitingOnPartner = true;
     }
   }
 
@@ -119,7 +126,7 @@ export async function GET(request: Request) {
     partner: ctx.partner,
     loggedToday: !!loggedRes.data,
     mission,
-    guess: { guessable, reveal },
+    guess: { guessable, waitingOnPartner, reveal },
     stats,
     notifyOptIn: profileRes.data?.notify_opt_in ?? true,
   });

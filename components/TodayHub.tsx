@@ -7,7 +7,7 @@ interface Mission {
   id: string;
   title: string;
   instruction: string;
-  status: "assigned" | "completed";
+  status: "assigned" | "completed" | "skipped";
   swap_count?: number;
   guessed?: boolean;
   noticed?: boolean;
@@ -24,13 +24,19 @@ interface Reveal {
   guess_text: string;
   is_correct: boolean;
   completed_at?: string | null;
+  guess_note?: string | null;
 }
 interface State {
   paired: boolean;
   date: string;
   loggedToday?: boolean;
   mission?: Mission | null;
-  guess?: { guessable: boolean; waitingOnPartner?: boolean; reveal: Reveal | null };
+  guess?: {
+    guessable: boolean;
+    waitingOnPartner?: boolean;
+    partnerSkipped?: boolean;
+    reveal: Reveal | null;
+  };
   stats?: Stats;
   notifyOptIn?: boolean;
 }
@@ -329,6 +335,7 @@ function Anticipation({
       <GuessCard
         guessable={state.guess?.guessable ?? false}
         waitingOnPartner={state.guess?.waitingOnPartner ?? false}
+        partnerSkipped={state.guess?.partnerSkipped ?? false}
         reveal={state.guess?.reveal ?? null}
         partnerName={partnerName}
         onDone={onDone}
@@ -570,6 +577,7 @@ function ReflectionWizard({
   const jot = useMemo(() => loadJot(userId, state.date), [userId, state.date]);
   const guessable = state.guess?.guessable ?? false;
   const waitingOnPartner = state.guess?.waitingOnPartner ?? false;
+  const partnerSkipped = state.guess?.partnerSkipped ?? false;
   const reveal = state.guess?.reveal ?? null;
 
   // Step list is fixed at mount so it doesn't shift as state refreshes mid-flow.
@@ -664,10 +672,22 @@ function ReflectionWizard({
         <GuessCard
           guessable
           waitingOnPartner={false}
+          partnerSkipped={false}
           reveal={reveal}
           partnerName={partnerName}
           onDone={onDone}
         />
+      ) : partnerSkipped ? (
+        <div className="card">
+          <div className="card-tag">The guess</div>
+          <h2>{partnerName} sat today out</h2>
+          <p className="muted">
+            No gesture today — nothing to notice. A fresh round starts tomorrow.
+          </p>
+          <button className="btn btn-block" style={{ marginTop: 14 }} onClick={onDone} type="button">
+            Finish for tonight
+          </button>
+        </div>
       ) : waitingOnPartner ? (
         <div className="card">
           <div className="card-tag">The guess</div>
@@ -793,6 +813,7 @@ function EveningSummary({ state, partnerName }: { state: State; partnerName: str
         <GuessCard
           guessable={false}
           waitingOnPartner={false}
+          partnerSkipped={false}
           reveal={state.guess.reveal}
           partnerName={partnerName}
           onDone={() => {}}
@@ -809,7 +830,9 @@ function EveningSummary({ state, partnerName }: { state: State; partnerName: str
 function MissionCard({ mission, partnerName }: { mission: Mission | null; partnerName: string }) {
   const [busy, setBusy] = useState(false);
   const [swapping, setSwapping] = useState(false);
+  const [skipping, setSkipping] = useState(false);
   const [swapError, setSwapError] = useState("");
+  const [confirmingSkip, setConfirmingSkip] = useState(false);
 
   async function complete() {
     setBusy(true);
@@ -839,7 +862,25 @@ function MissionCard({ mission, partnerName }: { mission: Mission | null; partne
     window.location.reload();
   }
 
+  async function skip() {
+    setSkipping(true);
+    setSwapError("");
+    const res = await fetch("/api/mission/skip", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(withDev()),
+    });
+    const data = await res.json().catch(() => ({}));
+    setSkipping(false);
+    if (!res.ok) {
+      setSwapError(data.error ?? "Couldn't skip right now");
+      return;
+    }
+    window.location.reload();
+  }
+
   const canSwap = !!mission && mission.status === "assigned" && (mission.swap_count ?? 0) < 1;
+  const canSkip = !!mission && mission.status === "assigned";
 
   if (!mission) {
     return (
@@ -849,6 +890,19 @@ function MissionCard({ mission, partnerName }: { mission: Mission | null; partne
         <p className="muted">
           Your mission appears once there&apos;s a little to go on. Keep sharing your
           evening notes and it&apos;ll be here tomorrow.
+        </p>
+      </div>
+    );
+  }
+
+  if (mission.status === "skipped") {
+    return (
+      <div className="card">
+        <div className="card-tag">Today&apos;s mission · sat out</div>
+        <h2>You sat this one out</h2>
+        <p className="muted">
+          Some days don&apos;t fit, and that&apos;s fine. A fresh mission arrives
+          tomorrow.
         </p>
       </div>
     );
@@ -889,11 +943,50 @@ function MissionCard({ mission, partnerName }: { mission: Mission | null; partne
           className="btn btn-ghost btn-block"
           style={{ marginTop: 8 }}
           onClick={swap}
-          disabled={swapping}
+          disabled={swapping || skipping}
           type="button"
         >
           {swapping ? "Finding another…" : "Not feeling this one? Swap it"}
         </button>
+      )}
+      {canSkip && !confirmingSkip && (
+        <button
+          className="link-muted"
+          style={{ marginTop: 12, display: "block", width: "100%", textAlign: "center" }}
+          onClick={() => setConfirmingSkip(true)}
+          disabled={skipping || swapping}
+          type="button"
+        >
+          Not happening today? Sit it out
+        </button>
+      )}
+      {canSkip && confirmingSkip && (
+        <div style={{ marginTop: 12 }}>
+          <p className="muted" style={{ textAlign: "center" }}>
+            Sit today out? {partnerName} won&apos;t be asked to guess, and a fresh
+            mission arrives tomorrow.
+          </p>
+          <div className="row" style={{ marginTop: 8 }}>
+            <button
+              className="btn btn-ghost"
+              style={{ flex: 1 }}
+              onClick={() => setConfirmingSkip(false)}
+              disabled={skipping}
+              type="button"
+            >
+              Never mind
+            </button>
+            <button
+              className="btn"
+              style={{ flex: 1 }}
+              onClick={skip}
+              disabled={skipping}
+              type="button"
+            >
+              {skipping ? "Sitting out…" : "Sit it out"}
+            </button>
+          </div>
+        </div>
       )}
       {swapError && <div className="error">{swapError}</div>}
     </div>
@@ -903,12 +996,14 @@ function MissionCard({ mission, partnerName }: { mission: Mission | null; partne
 function GuessCard({
   guessable,
   waitingOnPartner,
+  partnerSkipped,
   reveal,
   partnerName,
   onDone,
 }: {
   guessable: boolean;
   waitingOnPartner: boolean;
+  partnerSkipped: boolean;
   reveal: Reveal | null;
   partnerName: string;
   onDone: () => void;
@@ -943,7 +1038,10 @@ function GuessCard({
             <span className="pill bad">Theme was {shown.theme_label}</span>
           )}
         </div>
-        {shown.is_correct && (
+        {shown.guess_note && (
+          <p style={{ marginTop: 12, fontSize: 15 }}>{shown.guess_note}</p>
+        )}
+        {shown.is_correct && !shown.guess_note && (
           <p style={{ marginTop: 12, color: "var(--good)" }}>
             💛 You picked up on it without being told — that means {partnerName}&apos;s
             gesture truly landed. That noticing is the whole point.
@@ -954,6 +1052,17 @@ function GuessCard({
   }
 
   if (!guessable) {
+    if (partnerSkipped) {
+      return (
+        <div className="card">
+          <div className="card-tag">Did you notice?</div>
+          <h2>{partnerName} sat today out</h2>
+          <p className="muted">
+            No gesture today — nothing to notice. A fresh round starts tomorrow.
+          </p>
+        </div>
+      );
+    }
     if (waitingOnPartner) {
       return (
         <div className="card">

@@ -76,14 +76,16 @@ export async function GET(request: Request) {
   let reveal: unknown = null;
   let guessable = false;
   let waitingOnPartner = false;
+  let partnerSkipped = false;
 
   if (partnerTaskRes.data) {
     const taskId = partnerTaskRes.data.id;
-    const partnerCompleted = partnerTaskRes.data.status === "completed";
+    const partnerStatus = partnerTaskRes.data.status;
+    const partnerCompleted = partnerStatus === "completed";
 
     const guessRes = await db
       .from("guesses")
-      .select("guessed_theme, guess_text, is_correct")
+      .select("guessed_theme, guess_text, is_correct, guess_note")
       .eq("task_id", taskId)
       .eq("guesser_id", me)
       .maybeSingle();
@@ -109,7 +111,11 @@ export async function GET(request: Request) {
         guess_text: guessRes.data.guess_text,
         is_correct: guessRes.data.is_correct,
         completed_at: full.data?.completed_at ?? null,
+        guess_note: guessRes.data.guess_note ?? null,
       };
+    } else if (partnerStatus === "skipped") {
+      // They sat today out — no guess to make.
+      partnerSkipped = true;
     } else if (partnerCompleted) {
       // Only open the guess once the partner has actually marked their gesture
       // done — otherwise there's nothing real to have noticed yet.
@@ -126,7 +132,7 @@ export async function GET(request: Request) {
     partner: ctx.partner,
     loggedToday: !!loggedRes.data,
     mission,
-    guess: { guessable, waitingOnPartner, reveal },
+    guess: { guessable, waitingOnPartner, partnerSkipped, reveal },
     stats,
     notifyOptIn: profileRes.data?.notify_opt_in ?? true,
   });

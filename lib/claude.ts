@@ -170,3 +170,60 @@ export async function generateTask(
 
   return { ...fallbackTask(theme, Date.now(), avoidGestures), usedFallback: true };
 }
+
+// ---------------------------------------------------------------------------
+// Guess judging — compare the guesser's free-text guess to the actual mission
+// and produce one warm sentence for the reveal card. The structured theme
+// match (is_correct) is still the source of truth for streaks/stats; this is
+// purely for the "you noticed!" moment to feel personal instead of robotic.
+// ---------------------------------------------------------------------------
+
+const JUDGE_SYSTEM =
+  "You are a quiet, warm narrator at the reveal moment of a couples' app. " +
+  "Given what one partner ACTUALLY did today and what the other partner GUESSED " +
+  "they did, write ONE warm sentence (max ~30 words) that acknowledges the guess.\n\n" +
+  "Rules:\n" +
+  "1. If the guess clearly describes the same gesture or area, lead with warmth — " +
+  "e.g. \"You said 'X' — that's exactly what they had in mind\" or \"Close: you " +
+  "picked up on the same area.\"\n" +
+  "2. If the guess is off, be gentle and never scolding — e.g. \"They were actually " +
+  "in the area of {area}, but {guess} is a lovely guess too.\"\n" +
+  "3. Never break the fourth wall about themes, AI, scoring, or 'try again tomorrow'.\n" +
+  "4. Output ONLY JSON: {\"noticed\":<true|false>,\"why\":\"<one sentence>\"} " +
+  "— `noticed` is true only if the free-text guess described essentially the same action.";
+
+export async function judgeGuess(
+  actualTitle: string,
+  actualInstruction: string,
+  guessText: string,
+): Promise<{ noticed: boolean; why: string } | null> {
+  const c = client();
+  if (!c) return null;
+  const trimmed = guessText.trim();
+  if (!trimmed) return null;
+
+  try {
+    const res = await c.messages.create({
+      model: CLASSIFY_MODEL,
+      max_tokens: 200,
+      system: [{ type: "text", text: JUDGE_SYSTEM, cache_control: { type: "ephemeral" } }],
+      messages: [
+        {
+          role: "user",
+          content:
+            `ACTUAL MISSION: "${actualTitle}" — ${actualInstruction}\n` +
+            `GUESS: "${trimmed}"\n\n` +
+            `Write the reveal sentence.`,
+        },
+      ],
+    });
+    const text = res.content.find((b) => b.type === "text");
+    const parsed = text && text.type === "text" ? firstJson(text.text) : null;
+    if (parsed && typeof parsed.why === "string") {
+      return { noticed: !!parsed.noticed, why: parsed.why.trim() };
+    }
+  } catch {
+    // ignore — caller falls back to the plain reveal
+  }
+  return null;
+}

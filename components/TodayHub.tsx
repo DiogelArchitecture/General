@@ -693,9 +693,7 @@ function ReflectionWizard({
           <div className="card-tag">The guess</div>
           <h2>Nothing to notice just yet</h2>
           <p className="muted">
-            {partnerName} hasn&apos;t marked their mission done today, so there&apos;s
-            nothing to guess. You can come back to this once they have, or leave
-            it for tomorrow.
+            {`${partnerName} hasn't marked their mission done today, so there's nothing to guess. You can come back to this once they have, or leave it for tomorrow.`}
           </p>
           <button className="btn btn-block" style={{ marginTop: 14 }} onClick={onDone} type="button">
             Finish for tonight
@@ -963,8 +961,7 @@ function MissionCard({ mission, partnerName }: { mission: Mission | null; partne
       {canSkip && confirmingSkip && (
         <div style={{ marginTop: 12 }}>
           <p className="muted" style={{ textAlign: "center" }}>
-            Sit today out? {partnerName} won&apos;t be asked to guess, and a fresh
-            mission arrives tomorrow.
+            {`Sit today out? ${partnerName} won't be asked to guess, and a fresh mission arrives tomorrow.`}
           </p>
           <div className="row" style={{ marginTop: 8 }}>
             <button
@@ -1069,8 +1066,7 @@ function GuessCard({
           <div className="card-tag">Did you notice?</div>
           <h2>Nothing to notice just yet</h2>
           <p className="muted">
-            {partnerName} hasn&apos;t marked their mission done today. When they do,
-            you&apos;ll be able to guess it here.
+            {`${partnerName} hasn't marked their mission done today. When they do, you'll be able to guess it here.`}
           </p>
         </div>
       );

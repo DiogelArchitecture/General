@@ -12,6 +12,19 @@ export async function POST(request: Request) {
   const today = todayKey(body.devDate);
 
   const db = createServiceClient();
+
+  // Don't let "I did it" un-skip a mission the user explicitly sat out.
+  const { data: existing } = await db
+    .from("tasks")
+    .select("status")
+    .eq("couple_id", ctx.coupleId)
+    .eq("doer_id", ctx.userId)
+    .eq("task_date", today)
+    .maybeSingle();
+  if (existing?.status === "skipped") {
+    return NextResponse.json({ error: "You sat this one out — try again tomorrow" }, { status: 400 });
+  }
+
   const { error } = await db
     .from("tasks")
     .update({ status: "completed", completed_at: new Date().toISOString() })

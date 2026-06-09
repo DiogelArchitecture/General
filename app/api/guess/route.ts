@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserContext } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
+import { judgeGuess } from "@/lib/claude";
 import { todayKey } from "@/lib/dates";
 import { isThemeId, themeLabel } from "@/lib/themes";
 
@@ -35,6 +36,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Nothing to guess yet today" }, { status: 400 });
   }
 
+  // They sat today out — nothing to guess at.
+  if (task.status === "skipped") {
+    return NextResponse.json(
+      { error: "They sat today out — nothing to notice." },
+      { status: 400 },
+    );
+  }
   // Nothing to have noticed yet — wait until they mark it done.
   if (task.status !== "completed") {
     return NextResponse.json(
@@ -52,6 +60,11 @@ export async function POST(request: Request) {
   const actualTheme = internal?.theme ?? "";
   const isCorrect = isThemeId(actualTheme) && actualTheme === guessedTheme;
 
+  // Ask Claude for a warm one-liner that compares the free-text guess to what
+  // they actually did, so the reveal can feel personal rather than just ✓/✗.
+  // `is_correct` (theme match) is still the source of truth for stats.
+  const judged = await judgeGuess(task.title, task.instruction, guessText);
+
   // Idempotent: a second submit returns the existing reveal unchanged.
   await db.from("guesses").upsert(
     {
@@ -60,13 +73,14 @@ export async function POST(request: Request) {
       guessed_theme: guessedTheme,
       guess_text: guessText,
       is_correct: isCorrect,
+      guess_note: judged?.why ?? null,
     },
     { onConflict: "task_id,guesser_id", ignoreDuplicates: true },
   );
 
   const { data: saved } = await db
     .from("guesses")
-    .select("guessed_theme, guess_text, is_correct")
+    .select("guessed_theme, guess_text, is_correct, guess_note")
     .eq("task_id", task.id)
     .eq("guesser_id", ctx.userId)
     .maybeSingle();
@@ -82,6 +96,7 @@ export async function POST(request: Request) {
       guess_text: saved?.guess_text ?? guessText,
       is_correct: saved?.is_correct ?? isCorrect,
       completed_at: task.completed_at ?? null,
+      guess_note: saved?.guess_note ?? judged?.why ?? null,
     },
   });
 }

@@ -37,6 +37,9 @@ export async function POST(request: Request) {
   if (task.status === "completed") {
     return NextResponse.json({ error: "You've already done this one" }, { status: 400 });
   }
+  if (task.status === "skipped") {
+    return NextResponse.json({ error: "You sat this one out — try again tomorrow" }, { status: 400 });
+  }
   if ((task.swap_count ?? 0) >= MAX_SWAPS) {
     return NextResponse.json({ error: "You've already swapped today's mission" }, { status: 400 });
   }

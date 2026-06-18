@@ -10,15 +10,24 @@ Requires: Zoho CRM and Zoho Books MCP tools (or equivalent API credentials).
 Last run: 2026-06-18
 Results:
   584 Closed Won deals audited
-  449 MATCH  (invoiced Sales revenue == CRM Amount ±£0.01)
-  112 originally OVER on first-pass (gross invoice total > CRM Amount)
-   16 UNDER   (invoiced Sales revenue < CRM Amount) — manual review only
+  549 MATCH  (invoiced Sales revenue == CRM Amount ±£0.01)
+   28 UNDER  (invoiced Sales revenue < CRM Amount) — manual review only
+    0 CONFIRMED_OVER — no CRM updates required
     7 NO_INVOICES
 
-After line-item verification of 261 invoices across 112 OVER deals:
-  100 reclassified to MATCH (over was caused by LCS/PPS fee pass-throughs only)
+First-pass (gross totals):
+  449 MATCH, 112 OVER, 16 UNDER, 7 NO_INVOICES
+
+After line-item verification of 261 invoices across 112 first-pass OVER deals:
+  100 reclassified to MATCH (over caused by LCS/PPS fee pass-throughs only)
    12 reclassified to UNDER (Sales total < CRM Amount after exclusions)
     0 CONFIRMED_OVER — no CRM updates required
+
+UNDER deals requiring manual review (28 total):
+  Original UNDER (16): 1403, 1437, 1751, 1456, 1021, 1023, 1169, 1476,
+                       1479, 1461, 1242, 1308, 1413, 1397, 1364, 1048
+  Reclassified UNDER (12): 1293, 1227, 1234, 1199, 1127, 1150, 1197,
+                            1263, 1300, 1670, 1056, 1048(old)
 
 Known account IDs in Zoho Books line items:
   218179000000000376 — Sales (INCLUDE)
